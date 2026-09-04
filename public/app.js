@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 let me = null, socket = null, roomId = null, inVideo = false;
 let pcs = {}, localStream = null, muted = false, camOff = false;
+const BOARD_CTL = ['bPen', 'bMarker', 'bHigh', 'bErase', 'bUndo', 'bRedo', 'bClear', 'bColor', 'bSize'];
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -197,7 +198,6 @@ function updateVideoUI() {
   $('videoHint').hidden = !!roomId;
   updateBoardUI();
 }
-const BOARD_CTL = ['bPen', 'bMarker', 'bHigh', 'bErase', 'bUndo', 'bRedo', 'bClear', 'bColor', 'bSize'];
 function updateBoardUI() {
   BOARD_CTL.forEach((id) => { $(id).disabled = !roomId; });
   $('boardHint').hidden = !!roomId;
