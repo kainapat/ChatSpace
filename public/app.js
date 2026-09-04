@@ -8,7 +8,15 @@ async function api(path, opts = {}) {
   if (!r.ok) throw new Error(j.error || 'request failed');
   return j;
 }
-const fmt = (iso) => { try { return new Date(iso.replace(' ', 'T') + 'Z').toLocaleString(); } catch { return iso; } };
+const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmt = (iso) => {
+  try {
+    const s = String(iso).includes('T') ? String(iso) : String(iso).replace(' ', 'T') + 'Z';
+    const d = new Date(s);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getDate()} ${MO[d.getMonth()]} ${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  } catch { return iso; }
+};
 
 async function refreshMe() {
   try { me = await api('/api/me'); } catch { me = null; }
