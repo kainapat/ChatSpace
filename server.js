@@ -1,3 +1,4 @@
+require('dotenv').config(); // local .env (gitignored) — SESSION_SECRET lives here
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
