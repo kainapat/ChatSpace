@@ -15,7 +15,7 @@ nav{display:flex;gap:8px;padding:10px;border-top:1px solid #ddd;grid-column:1/-1
 video{width:100%;background:#000;border-radius:8px}
 #board{border:1px solid #333;width:100%;touch-action:none}
 #roomModal{position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#fff;border:1px solid #333;padding:16px;display:grid;gap:8px}
-#toasts{position:fixed;top:56px;right:12px;display:flex;flex-direction:column;gap:8px;z-index:99}
+#toasts{position:fixed;top:56px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:99}
 .toast{background:#222;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.3);max-width:300px}
 .toast.ok{border-left:4px solid #4caf50}.toast.err{border-left:4px solid #f44336}
 @media(max-width:700px){#app{grid-template-columns:1fr}aside{flex-direction:row;flex-wrap:wrap}}

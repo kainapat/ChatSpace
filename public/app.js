@@ -44,7 +44,7 @@ $('register').onclick = async () => {
     toast(`Registered as ${u.username}!`); refreshMe();
   } catch (e) { toast(e.message, 'err'); }
 };
-$('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); location.reload(); };
+$('logout').onclick = async () => { try { await api('/api/logout', { method: 'POST' }); } catch {} toast('Logged out'); setTimeout(() => location.reload(), 800); };
 
 async function loadRooms() {
   const rooms = await api('/api/rooms');
