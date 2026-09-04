@@ -60,7 +60,8 @@ async function loadRooms() {
   $('rooms').innerHTML = '';
   rooms.forEach((r) => {
     const b = document.createElement('button');
-    b.textContent = r.name; b.onclick = () => selectRoom(r.id, r.name);
+    b.textContent = r.name; b.dataset.id = r.id; b.onclick = () => selectRoom(r.id, r.name);
+    if (r.id === roomId) b.classList.add('active');
     $('rooms').appendChild(b);
   });
   return rooms;
@@ -142,6 +143,7 @@ async function selectRoom(id, name) {
   if (roomId) socket.emit('leave-room', { roomId });
   leaveVideo();
   roomId = id; $('roomTitle').textContent = name; $('messages').innerHTML = '';
+  [...$('rooms').children].forEach((x) => x.classList.toggle('active', +x.dataset.id === id));
   socket.emit('join-room', { roomId });
   const [msgs, evs, info] = await Promise.all([
     api(`/api/rooms/${id}/messages`), api(`/api/rooms/${id}/events`), api(`/api/rooms/${id}`),
@@ -155,7 +157,7 @@ async function selectRoom(id, name) {
 }
 function nameColor(username) {
   const h = [...String(username)].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
-  return `hsl(${h}, 60%, 35%)`;
+  return `hsl(${h}, 75%, 70%)`;
 }
 function scrollChat() { $('messages').scrollTop = 1e6; }
 function addChat(username, body, t) {
@@ -176,9 +178,11 @@ $('sendForm').onsubmit = (e) => { e.preventDefault(); socket.emit('send-message'
 
 // tabs
 document.querySelectorAll('nav button').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
   for (const t of ['chat', 'video', 'board']) $('tab-' + t).hidden = t !== b.dataset.tab;
   if (b.dataset.tab === 'video') { updateVideoUI(); refreshCams().catch(() => {}); }
 });
+document.querySelector('nav button')?.classList.add('active');
 updateVideoUI();
 
 // --- video mesh (Discord-like grid, P2P, STUN for cross-network) ---
