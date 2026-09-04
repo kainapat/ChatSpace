@@ -20,7 +20,21 @@ const sessionMiddleware = session({
   cookie: { httpOnly: true, sameSite: 'lax' },
 });
 app.use(sessionMiddleware);
+
+// --- pretty terminal (ANSI, no deps) ---
+const C = { reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', magenta: '\x1b[35m' };
+const clock = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+app.use((req, res, next) => {
+  if (req.path === '/socket.io/') return next();
+  const t = Date.now();
+  res.on('finish', () => {
+    const c = res.statusCode < 400 ? C.green : res.statusCode < 500 ? C.yellow : C.red;
+    console.log(`${C.dim}${clock()}${C.reset} ${req.method.padEnd(6)} ${req.path} ${c}${res.statusCode}${C.reset} ${C.dim}${Date.now() - t}ms${C.reset}`);
+  });
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
+const slog = (icon, msg) => console.log(`${C.dim}${clock()}${C.reset} ${icon} ${msg}`);
 
 io.engine.use(sessionMiddleware);
 
@@ -177,6 +191,7 @@ function broadcastVideoPeers(roomId) {
 
 io.on('connection', (socket) => {
   const { userId, username } = getSession(socket);
+  slog('🔌', `${C.green}${username}${C.reset} connected`);
 
   socket.on('join-room', ({ roomId }) => {
     roomId = Number(roomId);
@@ -253,6 +268,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    slog('🔌', `${C.yellow}${username}${C.reset} disconnected`);
     for (const [roomId, map] of presence) {
       if (map.delete(socket.id)) broadcastPresence(roomId);
     }
@@ -268,6 +284,19 @@ io.on('connection', (socket) => {
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 if (require.main === module) {
-  server.listen(PORT, () => console.log(`ChatSpace on http://localhost:${PORT}`));
+  server.listen(PORT, () => {
+    const n = (t) => { try { return db.prepare(`SELECT COUNT(*) AS c FROM ${t}`).get().c; } catch { return 0; } };
+    const mode = process.env.npm_lifecycle_event === 'dev' ? 'dev (nodemon)' : 'start';
+    console.log(`
+${C.cyan}${C.bold}   ____ _           _   ____                      ${C.reset}
+${C.cyan}${C.bold}  / ___| |__   __ _| |_/ ___| _ __   __ _  ___ ___ ${C.reset}
+${C.cyan}${C.bold} | |   | '_ \\ / _\` | __\\___ \\| '_ \\ / _\` |/ __/ _ \\${C.reset}
+${C.cyan}${C.bold} | |___| | | | (_| | |_ ___) | |_) | (_| | (_|  __/${C.reset}
+${C.cyan}${C.bold}  \\____|_| |_|\\__,_|\\__|____/| .__/ \\__,_|\\___\\___|${C.reset}
+${C.cyan}${C.bold}                             |_|                  ${C.reset}
+  ${C.dim}mode${C.reset}  ${mode}   ${C.dim}url${C.reset}  ${C.bold}http://localhost:${PORT}${C.reset}
+  ${C.dim}users${C.reset} ${n('users')}  ${C.dim}rooms${C.reset} ${n('rooms')}  ${C.dim}messages${C.reset} ${n('messages')}  ${C.dim}db${C.reset} ${process.env.DB_PATH || 'chatspace.db'}
+`);
+  });
 }
 module.exports = { app, server };
