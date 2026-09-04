@@ -37,7 +37,7 @@ function showConfirm(title, msg, okLabel = 'Delete') {
 }
 
 async function refreshMe() {
-  try { me = (await api('/api/me')).user; } catch { me = null; }
+  try { me = (await api('/api/me')).user ?? null; } catch { me = null; }
   $('auth').hidden = !!me; $('app').hidden = !me; $('logout').hidden = !me;
   $('me').textContent = me ? `User: ${me.username}` : '';
   if (me) { connectSocket(); loadRooms(); }
