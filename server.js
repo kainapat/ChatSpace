@@ -87,8 +87,8 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/me', (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'unauthorized' });
-  res.json({ id: req.session.userId, username: req.session.username });
+  if (!req.session.userId) return res.json({ user: null }); // 200 (not 401) so fresh loads stay console-clean
+  res.json({ user: { id: req.session.userId, username: req.session.username } });
 });
 
 app.get('/api/users', requireAuth, (req, res) => {
