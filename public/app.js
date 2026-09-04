@@ -25,6 +25,15 @@ function toast(msg, type = 'ok') {
   box.appendChild(d);
   setTimeout(() => d.remove(), 3000);
 }
+function showConfirm(title, msg, okLabel = 'Delete') {
+  return new Promise((resolve) => {
+    $('cTitle').textContent = title; $('cMsg').textContent = msg; $('cOk').textContent = okLabel;
+    $('confirmModal').hidden = false;
+    const done = (v) => { $('confirmModal').hidden = true; $('cOk').onclick = $('cCancel').onclick = null; resolve(v); };
+    $('cOk').onclick = () => done(true);
+    $('cCancel').onclick = () => done(false);
+  });
+}
 
 async function refreshMe() {
   try { me = await api('/api/me'); } catch { me = null; }
@@ -74,7 +83,7 @@ $('leaveRoom').onclick = () => {
 };
 $('delRoom').onclick = async () => {
   if (!roomId) return;
-  if (!confirm(`Delete "${$('roomTitle').textContent}" for everyone?`)) return;
+  if (!await showConfirm('Delete room', `Delete "${$('roomTitle').textContent}" for everyone?`)) return;
   try {
     await api(`/api/rooms/${roomId}`, { method: 'DELETE' });
     toast('Room deleted');
