@@ -12,12 +12,12 @@ Single Node monolith — no Docker, no external DB. `npm install && npm start`.
 | Area | What you get |
 | --- | --- |
 | 🔐 Auth | Username + password (bcrypt), session cookies, login / logout / register with toast feedback |
-| 🔒 Private rooms | Create rooms, add members by username, server-enforced membership on every action |
+| 🔒 Private rooms | Create rooms, add members by username, leave view anytime, creator-only delete — server-enforced membership on every action |
 | 💬 Realtime chat | Socket.IO per-room chat, server timestamps (`4 Sep 2026 15:32`), LINE-style bubbles, per-user name colors |
 | 🟢 Presence | Join / leave / send events with timestamps, online user list |
 | 🎥 Video | WebRTC mesh (≤6) with camera picker, mute / camera-off indicators (🔇 🚫), per-room sessions |
 | 🎨 Whiteboard | Pen / marker / highlighter / eraser, sizes + colors, undo-redo (own strokes), clear-only-mine, realtime sync |
-| 📱 UI | Responsive 3-tab layout (Chat / Video / Whiteboard), toasts + confirm modals, English UI |
+| 📱 UI | Dark modern theme, responsive 3-tab layout (Chat / Video / Whiteboard), toasts + confirm modals, video & whiteboard unlock only inside a room |
 
 ## 🚀 Quickstart
 
@@ -30,7 +30,7 @@ Open **http://localhost:3000**, then try the full flow with two accounts:
 
 1. Register `john` (+ open a second browser as `jane`)
 2. `john` → **+ New Room** → name it `Project A`, members: `jane`
-3. Both click the room → chat realtime 💬
+3. Click the room to enter it (video & whiteboard stay locked until you do) → chat realtime 💬
 4. **Video Mode** tab → **Join Video** on both → see each other 🎥
 5. **Whiteboard** tab → draw together 🎨
 
@@ -52,6 +52,7 @@ See [`docs/adr/`](docs/adr/) for the 5 recorded decisions and [`CONTEXT.md`](CON
 ChatSpace/
 ├── server.js        # REST API + Socket.IO (auth, rooms, chat, video signaling, whiteboard relay)
 ├── db.js            # SQLite schema (users, rooms, room_members, messages, room_events)
+├── eval-smoke.cjs   # frontend init-order smoke test (`npm test`)
 ├── public/
 │   ├── index.html   # 3-tab layout
 │   ├── styles.css   # modern design system (no framework)
