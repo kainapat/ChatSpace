@@ -24,6 +24,10 @@ _Avoid_: chat, text
 A join, leave, or send occurrence in a Room with a timestamp.
 _Avoid_: activity, presence, log
 
+**VideoSession**:
+The live per-room video call Members join and leave, ephemeral.
+_Avoid_: video mode, conference, call
+
 **Whiteboard**:
 A shared drawing surface per Room, ephemeral for the live session.
 _Avoid_: canvas, board

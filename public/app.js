@@ -111,38 +111,56 @@ document.querySelectorAll('nav button').forEach((b) => b.onclick = () => {
   for (const t of ['chat', 'video', 'board']) $('tab-' + t).hidden = t !== b.dataset.tab;
 });
 
-// --- video mesh ---
+// --- video mesh (Discord-like grid, P2P, STUN for cross-network) ---
+const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 async function ensureLocal() {
   if (!localStream) localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   return localStream;
 }
-$('vJoin').onclick = async () => { await ensureLocal(); renderLocal(); socket.emit('video-join', { roomId }); };
-function leaveVideo() { if (roomId) socket?.emit('video-leave', { roomId }); Object.values(pcs).forEach((pc) => pc.close()); pcs = {}; $('videos').innerHTML = ''; }
+$('vJoin').onclick = async () => { await ensureLocal(); ensureVideoEl('local', me.username + ' (you)', localStream, true); socket.emit('video-join', { roomId }); };
+function leaveVideo() {
+  if (roomId) socket?.emit('video-leave', { roomId });
+  Object.values(pcs).forEach((pc) => { try { pc.close(); } catch {} }); pcs = {};
+  $('videos').innerHTML = '';
+}
 $('vLeave').onclick = leaveVideo;
 $('vMute').onclick = () => { muted = !muted; localStream?.getAudioTracks().forEach((t) => t.enabled = !muted); socket.emit('video-state', { roomId, muted, camOff }); };
 $('vCam').onclick = () => { camOff = !camOff; localStream?.getVideoTracks().forEach((t) => t.enabled = !camOff); socket.emit('video-state', { roomId, muted, camOff }); };
-function renderLocal() {
-  $('videos').innerHTML = '';
-  const v = document.createElement('video'); v.muted = true; v.autoplay = true; v.playsInline = true; v.srcObject = localStream;
-  const w = document.createElement('div'); w.textContent = me.username + ' (you)'; w.appendChild(v); $('videos').appendChild(w);
+function ensureVideoEl(id, label, stream, mutedEl) {
+  let w = document.getElementById('vw-' + id);
+  if (!w) {
+    w = document.createElement('div'); w.id = 'vw-' + id;
+    const tag = document.createElement('div'); tag.textContent = label; w.appendChild(tag);
+    const v = document.createElement('video'); v.id = 'v-' + id; v.autoplay = true; v.playsInline = true;
+    if (mutedEl) v.muted = true;
+    w.appendChild(v); $('videos').appendChild(w);
+  }
+  const v = w.querySelector('video');
+  if (stream && v.srcObject !== stream) { v.srcObject = stream; v.play().catch(() => {}); }
+  return v;
 }
+function removeVideoEl(id) { document.getElementById('vw-' + id)?.remove(); }
 async function onPeers({ peers }) {
   await ensureLocal().catch(() => {});
+  ensureVideoEl('local', me.username + ' (you)', localStream, true);
   for (const p of peers) {
     if (p.socketId === socket.id || pcs[p.socketId]) continue;
-    const pc = new RTCPeerConnection(); pcs[p.socketId] = pc;
+    if (!(socket.id < p.socketId)) continue; // offerer election: smaller id offers, avoids glare
+    const pc = new RTCPeerConnection(RTC_CFG); pcs[p.socketId] = pc;
     localStream?.getTracks().forEach((t) => pc.addTrack(t, localStream));
     pc.onicecandidate = (e) => e.candidate && socket.emit('ice-candidate', { roomId, to: p.socketId, payload: e.candidate });
     pc.ontrack = (e) => addRemoteVideo(p.socketId, p.username, e.streams[0]);
     const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
     socket.emit('video-offer', { roomId, to: p.socketId, payload: offer });
   }
-  renderLocal();
-  for (const [id] of Object.entries(pcs)) if (!peers.find((p) => p.socketId === id)) { pcs[id].close(); delete pcs[id]; }
+  for (const id of Object.keys(pcs)) {
+    if (!peers.find((p) => p.socketId === id)) { try { pcs[id].close(); } catch {} delete pcs[id]; removeVideoEl(id); }
+  }
 }
 async function onOffer({ from, username, payload }) {
   await ensureLocal().catch(() => {});
-  const pc = new RTCPeerConnection(); pcs[from] = pc;
+  if (pcs[from]) { try { pcs[from].close(); } catch {} delete pcs[from]; }
+  const pc = new RTCPeerConnection(RTC_CFG); pcs[from] = pc;
   localStream?.getTracks().forEach((t) => pc.addTrack(t, localStream));
   pc.onicecandidate = (e) => e.candidate && socket.emit('ice-candidate', { roomId, to: from, payload: e.candidate });
   pc.ontrack = (e) => addRemoteVideo(from, username, e.streams[0]);
@@ -151,9 +169,7 @@ async function onOffer({ from, username, payload }) {
   socket.emit('video-answer', { roomId, to: from, payload: ans });
 }
 function addRemoteVideo(id, username, stream) {
-  if (document.getElementById('v-' + id)) return;
-  const v = document.createElement('video'); v.id = 'v-' + id; v.autoplay = true; v.playsInline = true; v.srcObject = stream;
-  const w = document.createElement('div'); w.textContent = username; w.appendChild(v); $('videos').appendChild(w);
+  ensureVideoEl(id, username, stream, false);
 }
 
 // --- whiteboard ---
