@@ -16,8 +16,8 @@ Single Node monolith — no Docker, no external DB. `npm install && npm start`.
 | 💬 Realtime chat | Socket.IO per-room chat, server timestamps (`4 Sep 2026 15:32`), LINE-style bubbles, per-user name colors |
 | 🟢 Presence | Join / leave / send events with timestamps, online user list |
 | 🎥 Video | WebRTC mesh (≤6) with camera picker, mute / camera-off indicators (🔇 🚫), per-room sessions |
-| 🎨 Whiteboard | Pen / marker / highlighter / eraser, sizes + colors, undo-redo (own strokes), clear-only-mine, realtime sync |
-| 📱 UI | Dark modern theme, responsive 3-tab layout (Chat / Video / Whiteboard), toasts + confirm modals, video & whiteboard unlock only inside a room |
+| 🎨 Whiteboard | Pen / marker / highlighter / eraser, sizes + colors, author name tags, undo-redo (own strokes), clear-only-mine, realtime sync |
+| 📱 UI | Dark ethereal-glass theme, Discord-like 3-pane layout (rooms \| chat \| members), skeleton + empty + error states, toasts + confirm modals, video & whiteboard unlock only inside a room |
 
 ## 🚀 Quickstart
 
