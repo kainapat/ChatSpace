@@ -23,6 +23,7 @@ Single Node monolith — no Docker, no external DB. `npm install && npm start`.
 
 ```bash
 npm install
+cp .env.example .env   # then put a long random SESSION_SECRET inside
 npm start        # or: npm run dev   (auto-restart via nodemon)
 ```
 
@@ -41,6 +42,7 @@ Open **http://localhost:3000**, then try the full flow with two accounts:
 | Backend | Express + Socket.IO | One repo for REST + realtime + video signaling |
 | Database | `node:sqlite` (built-in) | Zero native deps, file-based, enough for MVP |
 | Auth | express-session + bcryptjs + express-rate-limit | httpOnly cookies, session regeneration, server-side permission checks, auth rate limiting |
+| Config | dotenv (`.env`, gitignored) | `SESSION_SECRET` per environment; startup warns on insecure default |
 | Video | Native WebRTC mesh + public STUN | No SFU to deploy; cap ~6 peers |
 | Frontend | Vanilla HTML/CSS/JS + Canvas | No build step, instant load |
 
