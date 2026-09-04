@@ -195,6 +195,12 @@ function updateVideoUI() {
   $('vMute').textContent = muted ? 'Unmute' : 'Mute';
   $('vCam').textContent = camOff ? 'Camera on' : 'Camera off';
   $('videoHint').hidden = !!roomId;
+  updateBoardUI();
+}
+const BOARD_CTL = ['bPen', 'bMarker', 'bHigh', 'bErase', 'bUndo', 'bRedo', 'bClear', 'bColor', 'bSize'];
+function updateBoardUI() {
+  BOARD_CTL.forEach((id) => { $(id).disabled = !roomId; });
+  $('boardHint').hidden = !!roomId;
 }
 async function ensureLocal() {
   if (!localStream) {
@@ -328,11 +334,11 @@ function applyStyle(s) {
   else if (s.mode === 'hl') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = s.color; ctx.globalAlpha = 0.35; ctx.lineWidth = s.size * 4 + 6; }
   else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = s.color; ctx.globalAlpha = 1; ctx.lineWidth = s.size; }
 }
-$('bUndo').onclick = () => { for (let i = strokes.length - 1; i >= 0; i--) { if (strokes[i].mine) { redoStack.push(strokes.splice(i, 1)[0]); redraw(); break; } } };
-$('bRedo').onclick = () => { const s = redoStack.pop(); if (s) { strokes.push(s); drawStroke(s); socket.emit('whiteboard-stroke', { roomId, stroke: s }); } };
-$('bClear').onclick = () => { strokes = strokes.filter((s) => !s.mine); redoStack = []; redraw(); socket.emit('whiteboard-clear-mine', { roomId }); };
+$('bUndo').onclick = () => { if (!roomId) return toast('Select a room first', 'err'); for (let i = strokes.length - 1; i >= 0; i--) { if (strokes[i].mine) { redoStack.push(strokes.splice(i, 1)[0]); redraw(); break; } } };
+$('bRedo').onclick = () => { if (!roomId) return toast('Select a room first', 'err'); const s = redoStack.pop(); if (s) { strokes.push(s); drawStroke(s); socket.emit('whiteboard-stroke', { roomId, stroke: s }); } };
+$('bClear').onclick = () => { if (!roomId) return toast('Select a room first', 'err'); strokes = strokes.filter((s) => !s.mine); redoStack = []; redraw(); socket.emit('whiteboard-clear-mine', { roomId }); };
 function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
-cv.onpointerdown = (e) => { drawing = true; pts = [pos(e)]; cv.setPointerCapture(e.pointerId); };
+cv.onpointerdown = (e) => { if (!roomId) return; drawing = true; pts = [pos(e)]; cv.setPointerCapture(e.pointerId); };
 cv.onpointermove = (e) => { if (drawing) { pts.push(pos(e)); drawStroke({ points: [pts[pts.length - 2], pts[pts.length - 1]], ...curStyle() }); } };
 cv.onpointerup = () => {
   if (!drawing) return; drawing = false;

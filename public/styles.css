@@ -77,6 +77,8 @@ nav button.active{background:var(--accent);border-color:var(--accent);color:var(
 #videos>div>div:first-child{padding:6px 10px;font-size:13px}
 video{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;display:block}
 #videoHint{color:var(--muted)}
+#boardHint{color:var(--muted)}
+#tab-board input:disabled,#tab-board button:disabled{opacity:.4;cursor:not-allowed}
 #vCamSel{max-width:260px}
 /* whiteboard */
 #board{border:1px solid var(--line);border-radius:var(--radius);background:#fff;width:100%;touch-action:none;box-shadow:var(--shadow);cursor:crosshair}
