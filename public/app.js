@@ -3,7 +3,7 @@ let me = null, socket = null, roomId = null;
 let pcs = {}, localStream = null, muted = false, camOff = false;
 
 async function api(path, opts = {}) {
-  const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || 'request failed');
   return j;
