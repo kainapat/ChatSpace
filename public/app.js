@@ -80,7 +80,7 @@ $('refreshRooms').onclick = () => loadRooms().catch((e) => toast(e.message, 'err
 function exitRoomView() {
   leaveVideo();
   roomId = null;
-  $('roomTitle').textContent = 'Select a room';
+  $('roomTitle').textContent = 'Select a room'; $('roomDesc').textContent = '';
   $('members').textContent = ''; $('online').textContent = ''; $('messages').innerHTML = '';
   strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
   updateVideoUI();
@@ -158,7 +158,8 @@ async function selectRoom(id, name) {
     const [msgs, evs, info] = await Promise.all([
       api(`/api/rooms/${id}/messages`), api(`/api/rooms/${id}/events`), api(`/api/rooms/${id}`),
     ]);
-    $('members').textContent = info.members.map((m) => m.username).join(', ');
+  $('members').textContent = info.members.map((m) => m.username).join(', ');
+  $('roomDesc').textContent = info.description || '';
     const timeline = [...msgs.map((m) => ({ t: m.created_at, kind: 'chat', username: m.username, body: m.body })),
       ...evs.map((e) => ({ t: e.created_at, kind: 'sys', text: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
     $('messages').innerHTML = '';

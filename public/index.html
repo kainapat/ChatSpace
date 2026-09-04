@@ -27,19 +27,14 @@
 </section>
 
 <main id="app" hidden>
-  <aside>
+  <aside id="left">
     <button id="newRoom">+ New Room</button>
     <button id="refreshRooms" title="Refresh rooms">⟳</button>
     <div id="rooms"></div>
-    <h4>Online</h4>
-    <div id="online"></div>
-    <h4>Members</h4>
-    <div id="members"></div>
-    <input id="addMemberName" placeholder="add username..." />
-    <button id="addMember">Add member</button>
   </aside>
   <section id="center">
     <h3 id="roomTitle">Select a room</h3>
+    <p id="roomDesc"></p>
     <button id="leaveRoom">Leave room</button>
     <button id="delRoom">Delete room</button>
     <div id="tab-chat">
@@ -65,6 +60,14 @@
       <canvas id="board" width="800" height="450"></canvas>
     </div>
   </section>
+  <aside id="right">
+    <h4>Online</h4>
+    <div id="online"></div>
+    <h4>Members</h4>
+    <div id="members"></div>
+    <input id="addMemberName" placeholder="add username..." />
+    <button id="addMember">Add member</button>
+  </aside>
   <nav><button data-tab="chat">Chat</button><button data-tab="video">Video Mode</button><button data-tab="board">Whiteboard</button></nav>
 </main>
 

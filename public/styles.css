@@ -38,8 +38,11 @@ header button{margin-left:auto;background:rgba(26,36,64,.7);color:#fff;border-ra
   box-shadow:inset 0 1px 0 rgba(255,255,255,.09),var(--shadow)}
 #auth h2{margin:0 0 6px;letter-spacing:-.02em}
 /* layout */
-#app{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 53px)}
-aside{border-right:1px solid var(--line);background:var(--panel2);padding:14px;display:flex;flex-direction:column;gap:10px}
+#app{display:grid;grid-template-columns:250px 1fr 230px;min-height:calc(100vh - 53px)}
+aside{border-right:1px solid var(--line);background:var(--panel2);padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+#right{border-right:none;border-left:1px solid var(--line)}
+#roomDesc{margin:-6px 0 0;color:var(--muted);font-size:13px}
+#roomDesc:empty{display:none}
 aside h4{margin:8px 0 0;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
 #rooms{display:flex;flex-direction:column;gap:6px}
 #rooms button{text-align:left;border-color:transparent;background:transparent;display:flex;align-items:center;gap:8px}
@@ -124,7 +127,13 @@ body:has(#roomModal:not([hidden]))::before,body:has(#confirmModal:not([hidden]))
   box-shadow:var(--shadow);max-width:340px;animation:drop .35s var(--ease)}
 .toast.ok{border-left:4px solid var(--online)}.toast.err{border-left:4px solid var(--danger)}
 @keyframes drop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
-@media(max-width:700px){#app{grid-template-columns:1fr}aside{flex-direction:row;flex-wrap:wrap}#messages .row{max-width:90%}}
+@media(max-width:1100px){
+  #app{grid-template-columns:220px 1fr}
+  #right{grid-column:1/-1;border-left:none;border-top:1px solid var(--line);
+    flex-direction:row;flex-wrap:wrap;align-items:center}
+  #right h4{margin:0}
+}
+@media(max-width:700px){#app{grid-template-columns:1fr}aside,#right{flex-direction:row;flex-wrap:wrap}#messages .row{max-width:90%}}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
   header strong::after{animation:none}
