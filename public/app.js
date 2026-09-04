@@ -35,13 +35,29 @@ async function loadRooms() {
     $('rooms').appendChild(b);
   });
 }
-$('newRoom').onclick = () => $('roomModal').hidden = false;
+$('newRoom').onclick = () => { $('roomErr').textContent = ''; $('roomModal').hidden = false; };
 $('rCancel').onclick = () => $('roomModal').hidden = true;
+$('refreshRooms').onclick = () => loadRooms();
 $('rCreate').onclick = async () => {
-  const memberUsernames = $('rMembers').value.split(',').map((s) => s.trim()).filter(Boolean);
-  const r = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name: $('rName').value, description: $('rDesc').value, memberUsernames }) });
-  $('roomModal').hidden = true; loadRooms(); selectRoom(r.id, $('rName').value);
+  try {
+    const memberUsernames = $('rMembers').value.split(',').map((s) => s.trim()).filter(Boolean);
+    const r = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name: $('rName').value, description: $('rDesc').value, memberUsernames }) });
+    $('roomModal').hidden = true; loadRooms(); selectRoom(r.id, $('rName').value);
+  } catch (e) { $('roomErr').textContent = e.message; }
 };
+$('addMember').onclick = async () => {
+  try {
+    if (!roomId) throw new Error('select a room first');
+    await api(`/api/rooms/${roomId}/members`, { method: 'POST', body: JSON.stringify({ username: $('addMemberName').value.trim() }) });
+    $('addMemberName').value = ''; $('memberErr').textContent = '';
+    reloadMembers();
+  } catch (e) { $('memberErr').textContent = e.message; }
+};
+async function reloadMembers() {
+  if (!roomId) return;
+  const info = await api(`/api/rooms/${roomId}`);
+  $('members').textContent = info.members.map((m) => m.username).join(', ');
+}
 
 function connectSocket() {
   if (socket) return;
@@ -55,6 +71,7 @@ function connectSocket() {
   socket.on('video-offer', onOffer);
   socket.on('video-answer', async ({ from, payload }) => pcs[from]?.setRemoteDescription(payload));
   socket.on('ice-candidate', async ({ from, payload }) => pcs[from]?.addIceCandidate(payload).catch(() => {}));
+  socket.on('rooms-changed', () => loadRooms());
 }
 
 async function selectRoom(id, name) {

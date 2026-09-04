@@ -25,11 +25,15 @@
 <main id="app" hidden>
   <aside>
     <button id="newRoom">+ New Room</button>
+    <button id="refreshRooms" title="Refresh rooms">⟳</button>
     <div id="rooms"></div>
     <h4>Online</h4>
     <div id="online"></div>
     <h4>Members</h4>
     <div id="members"></div>
+    <input id="addMemberName" placeholder="add username..." />
+    <button id="addMember">Add member</button>
+    <p id="memberErr"></p>
   </aside>
   <section id="center">
     <h3 id="roomTitle">Select a room</h3>
@@ -61,6 +65,7 @@
   <input id="rName" placeholder="Room Name" />
   <input id="rDesc" placeholder="Description (optional)" />
   <input id="rMembers" placeholder="members: jane, mike (usernames)" />
+  <p id="roomErr"></p>
   <button id="rCreate">Create</button><button id="rCancel">Cancel</button>
 </div>
 

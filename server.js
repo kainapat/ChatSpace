@@ -87,16 +87,21 @@ app.post('/api/rooms', requireAuth, (req, res) => {
   const { name = '', description = '', memberUsernames = [] } = req.body || {};
   if (!name.trim()) return res.status(400).json({ error: 'name required' });
   try {
+    const memberIds = [];
+    for (const uname of new Set(memberUsernames || [])) {
+      const u = db.prepare('SELECT id FROM users WHERE username = ?').get(uname);
+      if (!u) return res.status(400).json({ error: `unknown user: ${uname}` });
+      memberIds.push(u.id);
+    }
     const r = db.prepare('INSERT INTO rooms (name, description, created_by) VALUES (?, ?, ?)')
       .run(name.trim(), String(description || ''), req.session.userId);
     const roomId = Number(r.lastInsertRowid);
     db.prepare('INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)').run(roomId, req.session.userId);
-    for (const uname of new Set(memberUsernames || [])) {
-      const u = db.prepare('SELECT id FROM users WHERE username = ?').get(uname);
-      if (!u) return res.status(400).json({ error: `unknown user: ${uname}` });
-      db.prepare('INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)').run(roomId, u.id);
+    for (const uid of memberIds) {
+      db.prepare('INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)').run(roomId, uid);
     }
     res.json({ id: roomId, name: name.trim() });
+    io.emit('rooms-changed');
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -122,6 +127,7 @@ app.post('/api/rooms/:id/members', requireAuth, checkMember, (req, res) => {
   const u = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (!u) return res.status(400).json({ error: `unknown user: ${username}` });
   db.prepare('INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)').run(req.roomId, u.id);
+  io.emit('rooms-changed');
   res.json({ ok: true });
 });
 
