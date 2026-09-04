@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ChatSpace</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header>
+  <strong>ChatSpace</strong>
+  <span id="me"></span>
+  <button id="logout" hidden>Logout</button>
+</header>
+
+<section id="auth">
+  <h2>Login</h2>
+  <input id="username" placeholder="Username" autocomplete="username" />
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+  <button id="login">Login</button>
+  <button id="register">Register</button>
+  <p id="authErr"></p>
+</section>
+
+<main id="app" hidden>
+  <aside>
+    <button id="newRoom">+ New Room</button>
+    <div id="rooms"></div>
+    <h4>Online</h4>
+    <div id="online"></div>
+    <h4>Members</h4>
+    <div id="members"></div>
+  </aside>
+  <section id="center">
+    <h3 id="roomTitle">Select a room</h3>
+    <div id="tab-chat">
+      <div id="messages"></div>
+      <form id="sendForm"><input id="msg" placeholder="Type a message..." autocomplete="off" /><button>Send</button></form>
+    </div>
+    <div id="tab-video" hidden>
+      <div><button id="vJoin">Join Video</button><button id="vLeave">Leave</button>
+      <button id="vMute">Mute</button><button id="vCam">Camera off</button></div>
+      <div id="videos"></div>
+    </div>
+    <div id="tab-board" hidden>
+      <div>
+        <input type="color" id="bColor" value="#111111" />
+        <input type="range" id="bSize" min="1" max="20" value="3" />
+        <button id="bPen">Pen</button><button id="bErase">Eraser</button>
+        <button id="bUndo">Undo</button><button id="bRedo">Redo</button>
+        <button id="bClear">Clear</button>
+      </div>
+      <canvas id="board" width="800" height="450"></canvas>
+    </div>
+  </section>
+  <nav><button data-tab="chat">Chat</button><button data-tab="video">Video Mode</button><button data-tab="board">Whiteboard</button></nav>
+</main>
+
+<div id="roomModal" hidden>
+  <h3>New Room</h3>
+  <input id="rName" placeholder="Room Name" />
+  <input id="rDesc" placeholder="Description (optional)" />
+  <input id="rMembers" placeholder="members: jane, mike (usernames)" />
+  <button id="rCreate">Create</button><button id="rCancel">Cancel</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

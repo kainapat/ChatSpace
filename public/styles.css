@@ -1,0 +1,18 @@
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif}
+header{display:flex;gap:12px;align-items:center;padding:10px 14px;background:#111;color:#fff}
+#auth{max-width:320px;margin:40px auto;display:grid;gap:8px}
+#app{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 48px)}
+aside{border-right:1px solid #ddd;padding:10px;display:flex;flex-direction:column;gap:8px}
+#rooms{display:flex;flex-direction:column;gap:6px}
+#rooms button{text-align:left}
+#center{padding:10px;display:flex;flex-direction:column;gap:8px}
+#messages{border:1px solid #ddd;height:45vh;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+#messages .sys{color:#666;font-size:12px}
+#messages .ts{color:#888;font-size:11px}
+#sendForm{display:flex;gap:8px}#sendForm input{flex:1}
+nav{display:flex;gap:8px;padding:10px;border-top:1px solid #ddd;grid-column:1/-1}
+#videos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+video{width:100%;background:#000;border-radius:8px}
+#board{border:1px solid #333;width:100%;touch-action:none}
+#roomModal{position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#fff;border:1px solid #333;padding:16px;display:grid;gap:8px}
+@media(max-width:700px){#app{grid-template-columns:1fr}aside{flex-direction:row;flex-wrap:wrap}}

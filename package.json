@@ -1,0 +1,15 @@
+{
+  "name": "chatspace",
+  "version": "0.1.0",
+  "description": "ChatSpace - private rooms with realtime chat, video, whiteboard (Node monolith MVP)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "socket.io": "^4.7.5"
+  }
+}
