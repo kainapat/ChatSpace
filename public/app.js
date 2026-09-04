@@ -73,8 +73,8 @@ function connectSocket() {
   socket.on('chat-message', (m) => { if (m.roomId === roomId) addMsg(`${m.username}: ${m.body}`, m.createdAt); });
   socket.on('room-event', (e) => { if (e.roomId === roomId) addSys(`${e.username} ${e.type}`, e.createdAt); });
   socket.on('presence', (p) => { if (p.roomId === roomId) $('online').textContent = p.users.join(', '); });
-  socket.on('whiteboard-stroke', ({ stroke }) => drawStroke(stroke, false));
-  socket.on('whiteboard-clear', () => clearBoard(false));
+  socket.on('whiteboard-stroke', ({ roomId: rid, username, stroke }) => { if (rid === roomId) onRemoteStroke(username, stroke); });
+  socket.on('whiteboard-clear-mine', ({ roomId: rid, username }) => { if (rid === roomId) onClearMine(username); });
   socket.on('video-peers', onPeers);
   socket.on('video-offer', onOffer);
   socket.on('video-answer', async ({ from, payload }) => pcs[from]?.setRemoteDescription(payload));
@@ -94,7 +94,7 @@ async function selectRoom(id, name) {
   const timeline = [...msgs.map((m) => ({ t: m.created_at, s: `${m.username}: ${m.body}` })),
     ...evs.map((e) => ({ t: e.created_at, s: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
   timeline.forEach((x) => addMsg(x.s, x.t));
-  clearBoard(false);
+  strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
 }
 function addMsg(s, t) {
   const d = document.createElement('div'); d.innerHTML = `<div>${s}</div><div class="ts">${fmt(t)}</div>`;
@@ -172,29 +172,38 @@ function addRemoteVideo(id, username, stream) {
   ensureVideoEl(id, username, stream, false);
 }
 
-// --- whiteboard ---
+// --- whiteboard (pen/marker/highlighter/eraser, clear only mine) ---
 const cv = $('board'), ctx = cv.getContext('2d');
-let drawing = false, pts = [], myStrokes = [], redoStack = [], tool = 'pen';
-$('bPen').onclick = () => tool = 'pen'; $('bErase').onclick = () => tool = 'erase';
-$('bUndo').onclick = () => { const s = myStrokes.pop(); if (s) { redoStack.push(s); redraw(); } };
-$('bRedo').onclick = () => { const s = redoStack.pop(); if (s) { myStrokes.push(s); drawStroke(s, false); socket.emit('whiteboard-stroke', { roomId, stroke: s }); } };
-$('bClear').onclick = () => { myStrokes = []; redoStack = []; clearBoard(true); };
+let drawing = false, pts = [], strokes = [], redoStack = [], tool = 'pen';
+$('bPen').onclick = () => tool = 'pen';
+$('bMarker').onclick = () => tool = 'marker';
+$('bHigh').onclick = () => tool = 'hl';
+$('bErase').onclick = () => tool = 'erase';
+function curStyle() { return { color: $('bColor').value, size: +$('bSize').value, mode: tool }; }
+function applyStyle(s) {
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (s.mode === 'erase') { ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = '#000'; ctx.globalAlpha = 1; ctx.lineWidth = s.size * 3 + 4; }
+  else if (s.mode === 'marker') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = s.color; ctx.globalAlpha = 1; ctx.lineWidth = s.size * 2 + 2; }
+  else if (s.mode === 'hl') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = s.color; ctx.globalAlpha = 0.35; ctx.lineWidth = s.size * 4 + 6; }
+  else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = s.color; ctx.globalAlpha = 1; ctx.lineWidth = s.size; }
+}
+$('bUndo').onclick = () => { for (let i = strokes.length - 1; i >= 0; i--) { if (strokes[i].mine) { redoStack.push(strokes.splice(i, 1)[0]); redraw(); break; } } };
+$('bRedo').onclick = () => { const s = redoStack.pop(); if (s) { strokes.push(s); drawStroke(s); socket.emit('whiteboard-stroke', { roomId, stroke: s }); } };
+$('bClear').onclick = () => { strokes = strokes.filter((s) => !s.mine); redoStack = []; redraw(); socket.emit('whiteboard-clear-mine', { roomId }); };
 function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 cv.onpointerdown = (e) => { drawing = true; pts = [pos(e)]; cv.setPointerCapture(e.pointerId); };
-cv.onpointermove = (e) => { if (drawing) { pts.push(pos(e)); drawStroke({ points: [pts[pts.length - 2], pts[pts.length - 1]], color: $('bColor').value, size: +$('bSize').value, erase: tool === 'erase' }, false); } };
+cv.onpointermove = (e) => { if (drawing) { pts.push(pos(e)); drawStroke({ points: [pts[pts.length - 2], pts[pts.length - 1]], ...curStyle() }); } };
 cv.onpointerup = () => {
   if (!drawing) return; drawing = false;
-  const s = { points: pts, color: $('bColor').value, size: +$('bSize').value, erase: tool === 'erase' };
-  myStrokes.push(s); redoStack = []; socket.emit('whiteboard-stroke', { roomId, stroke: s });
+  const s = { points: pts, ...curStyle(), by: me.username, mine: true };
+  strokes.push(s); redoStack = []; socket.emit('whiteboard-stroke', { roomId, stroke: s });
 };
-let remoteStrokes = [];
-function drawStroke(s, record = true) {
-  ctx.save(); ctx.strokeStyle = s.color; ctx.lineWidth = s.size; ctx.lineCap = 'round';
-  if (s.erase) ctx.globalCompositeOperation = 'destination-over';
+function drawStroke(s) {
+  ctx.save(); applyStyle(s);
   ctx.beginPath(); s.points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); ctx.restore();
-  if (!record) remoteStrokes.push(s);
 }
-function redraw() { ctx.clearRect(0, 0, cv.width, cv.height); [...remoteStrokes, ...myStrokes].forEach((s) => { const tmp = remoteStrokes; drawStroke(s, true); remoteStrokes = tmp; }); }
-function clearBoard(emit) { ctx.clearRect(0, 0, cv.width, cv.height); remoteStrokes = []; if (emit) socket.emit('whiteboard-clear', { roomId }); }
+function redraw() { ctx.clearRect(0, 0, cv.width, cv.height); strokes.forEach(drawStroke); }
+function onRemoteStroke(username, stroke) { stroke.by = username; stroke.mine = false; strokes.push(stroke); drawStroke(stroke); }
+function onClearMine(username) { strokes = strokes.filter((s) => s.by !== username); redraw(); }
 
 refreshMe();

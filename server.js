@@ -246,10 +246,10 @@ io.on('connection', (socket) => {
     if (!isMember(roomId, userId)) return;
     socket.to(roomKey(roomId)).emit('whiteboard-stroke', { roomId, username, stroke });
   });
-  socket.on('whiteboard-clear', ({ roomId }) => {
+  socket.on('whiteboard-clear-mine', ({ roomId }) => {
     roomId = Number(roomId);
     if (!isMember(roomId, userId)) return;
-    io.to(roomKey(roomId)).emit('whiteboard-clear', { roomId, username });
+    io.to(roomKey(roomId)).emit('whiteboard-clear-mine', { roomId, username });
   });
 
   socket.on('disconnect', () => {
