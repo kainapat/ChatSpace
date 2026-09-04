@@ -113,7 +113,7 @@ async function reloadMembers() {
 function connectSocket() {
   if (socket) return;
   socket = io();
-  socket.on('chat-message', (m) => { if (m.roomId === roomId) addMsg(`${m.username}: ${m.body}`, m.createdAt); });
+  socket.on('chat-message', (m) => { if (m.roomId === roomId) addChat(m.username, m.body, m.createdAt); });
   socket.on('room-event', (e) => { if (e.roomId === roomId) addSys(`${e.username} ${e.type}`, e.createdAt); });
   socket.on('presence', (p) => { if (p.roomId === roomId) $('online').textContent = p.users.join(', '); });
   socket.on('whiteboard-stroke', ({ roomId: rid, username, stroke }) => { if (rid === roomId) onRemoteStroke(username, stroke); });
@@ -147,19 +147,30 @@ async function selectRoom(id, name) {
     api(`/api/rooms/${id}/messages`), api(`/api/rooms/${id}/events`), api(`/api/rooms/${id}`),
   ]);
   $('members').textContent = info.members.map((m) => m.username).join(', ');
-  const timeline = [...msgs.map((m) => ({ t: m.created_at, s: `${m.username}: ${m.body}` })),
-    ...evs.map((e) => ({ t: e.created_at, s: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
-  timeline.forEach((x) => addMsg(x.s, x.t));
+  const timeline = [...msgs.map((m) => ({ t: m.created_at, kind: 'chat', username: m.username, body: m.body })),
+    ...evs.map((e) => ({ t: e.created_at, kind: 'sys', text: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
+  timeline.forEach((x) => x.kind === 'chat' ? addChat(x.username, x.body, x.t) : addSys(x.text, x.t));
   strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
   updateVideoUI();
 }
-function addMsg(s, t) {
-  const d = document.createElement('div'); d.innerHTML = `<div>${s}</div><div class="ts">${fmt(t)}</div>`;
-  $('messages').appendChild(d); $('messages').scrollTop = 1e6;
+function nameColor(username) {
+  const h = [...String(username)].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+  return `hsl(${h}, 60%, 35%)`;
+}
+function scrollChat() { $('messages').scrollTop = 1e6; }
+function addChat(username, body, t) {
+  const own = me && username === me.username;
+  const row = document.createElement('div'); row.className = 'row' + (own ? ' own' : '');
+  const un = document.createElement('div'); un.className = 'uname';
+  un.textContent = own ? 'You' : username; un.style.color = nameColor(username);
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = body;
+  const ts = document.createElement('div'); ts.className = 'ts'; ts.textContent = fmt(t);
+  row.appendChild(un); row.appendChild(b); row.appendChild(ts);
+  $('messages').appendChild(row); scrollChat();
 }
 function addSys(s, t) {
   const d = document.createElement('div'); d.className = 'sys'; d.textContent = `${s} — ${fmt(t)}`;
-  $('messages').appendChild(d); $('messages').scrollTop = 1e6;
+  $('messages').appendChild(d); scrollChat();
 }
 $('sendForm').onsubmit = (e) => { e.preventDefault(); socket.emit('send-message', { roomId, body: $('msg').value }); $('msg').value = ''; };
 
