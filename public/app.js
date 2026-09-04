@@ -53,7 +53,7 @@ function connectSocket() {
   socket.on('whiteboard-clear', () => clearBoard(false));
   socket.on('video-peers', onPeers);
   socket.on('video-offer', onOffer);
-  socket.on('video-answer', async ({ from, payload }) => pcs[from]?.setRemoteDescription(payload);
+  socket.on('video-answer', async ({ from, payload }) => pcs[from]?.setRemoteDescription(payload));
   socket.on('ice-candidate', async ({ from, payload }) => pcs[from]?.addIceCandidate(payload).catch(() => {}));
 }
 
