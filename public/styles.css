@@ -1,4 +1,4 @@
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;font-family:system-ui,sans-serif}
 header{display:flex;gap:12px;align-items:center;padding:10px 14px;background:#111;color:#fff}
 #auth{max-width:320px;margin:40px auto;display:grid;gap:8px}
 #app{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 48px)}
