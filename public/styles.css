@@ -61,7 +61,8 @@ aside h4{margin:8px 0 0;color:var(--muted);font-size:12px;text-transform:upperca
 #leaveRoom,#delRoom{font-size:13px;padding:6px 10px}
 #delRoom{color:var(--danger);border-color:rgba(251,113,133,.4)}
 /* chat */
-#messages{border:1px solid var(--line);background:var(--panel2);height:45vh;overflow:auto;padding:14px;
+#tab-chat,#tab-video,#tab-board{flex:1;display:flex;flex-direction:column;min-height:0}
+#messages{border:1px solid var(--line);background:var(--panel2);flex:1;min-height:320px;overflow:auto;padding:14px;
   display:flex;flex-direction:column;gap:8px;border-radius:16px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
 #messages::-webkit-scrollbar{width:8px}
