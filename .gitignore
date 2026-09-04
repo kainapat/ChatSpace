@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Env / secrets
+.env
+.env.*
+
+# SQLite / DB (never push PUBLIC)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+data/
+
+# Sessions / uploads
+sessions/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
