@@ -217,6 +217,12 @@ function paintVideoEl(id, label, st) {
 }
 function removeVideoEl(id) { document.getElementById('vw-' + id)?.remove(); }
 async function onPeers({ peers }) {
+  if (!inVideo) { // left (or never joined): prune only, never touch camera/DOM
+    for (const id of Object.keys(pcs)) {
+      if (!peers.find((p) => p.socketId === id)) { try { pcs[id].close(); } catch {} delete pcs[id]; removeVideoEl(id); }
+    }
+    return;
+  }
   await ensureLocal().catch(() => {});
   ensureVideoEl('local', me.username + ' (you)', localStream, true);
   paintVideoEl('local', me.username + ' (you)', { muted, camOff });
@@ -236,6 +242,7 @@ async function onPeers({ peers }) {
   }
 }
 async function onOffer({ from, username, payload }) {
+  if (!inVideo) return; // ignore invites when not in video (prevents resurrection)
   await ensureLocal().catch(() => {});
   if (pcs[from]) { try { pcs[from].close(); } catch {} delete pcs[from]; }
   const pc = new RTCPeerConnection(RTC_CFG); pcs[from] = pc;
