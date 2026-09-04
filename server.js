@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -11,8 +12,13 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
+const USING_DEFAULT_SECRET = !process.env.SESSION_SECRET;
 
 app.use(express.json());
+// Brute-force guard for auth endpoints (30 attempts / 15 min per IP)
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: false, legacyHeaders: false, message: { error: 'too many attempts, try again later' } });
+app.use('/api/login', authLimiter);
+app.use('/api/register', authLimiter);
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'chatspace-mvp-secret',
   resave: false,
@@ -49,7 +55,7 @@ const USER_RE = /^[A-Za-z0-9_-]{3,20}$/;
 app.post('/api/register', (req, res) => {
   const { username = '', password = '' } = req.body || {};
   if (!USER_RE.test(username)) return res.status(400).json({ error: 'username 3-20: A-Z a-z 0-9 _ -' });
-  if (typeof password !== 'string' || password.length < 4) return res.status(400).json({ error: 'password min 4' });
+  if (typeof password !== 'string' || password.length < 4 || password.length > 128) return res.status(400).json({ error: 'password 4-128 chars' });
   const hash = bcrypt.hashSync(password, 10);
   try {
     const r = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hash);
@@ -68,9 +74,12 @@ app.post('/api/login', (req, res) => {
   if (!u || !bcrypt.compareSync(password, u.password_hash)) {
     return res.status(401).json({ error: 'invalid credentials' });
   }
-  req.session.userId = u.id;
-  req.session.username = u.username;
-  res.json({ id: u.id, username: u.username });
+  req.session.regenerate((err) => { // prevent session fixation
+    if (err) return res.status(500).json({ error: 'session error' });
+    req.session.userId = u.id;
+    req.session.username = u.username;
+    res.json({ id: u.id, username: u.username });
+  });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -204,7 +213,7 @@ io.on('connection', (socket) => {
   const { userId, username } = getSession(socket);
   slog('🔌', `${C.green}${username}${C.reset} connected`);
 
-  socket.on('join-room', ({ roomId }) => {
+  socket.on('join-room', ({ roomId } = {}) => {
     roomId = Number(roomId);
     if (!isMember(roomId, userId)) return socket.emit('error-message', { error: 'not a member' });
     socket.join(roomKey(roomId));
@@ -215,7 +224,7 @@ io.on('connection', (socket) => {
     broadcastPresence(roomId);
   });
 
-  socket.on('leave-room', ({ roomId }) => {
+  socket.on('leave-room', ({ roomId } = {}) => {
     roomId = Number(roomId);
     socket.leave(roomKey(roomId));
     presence.get(roomId)?.delete(socket.id);
@@ -226,7 +235,7 @@ io.on('connection', (socket) => {
     broadcastPresence(roomId);
   });
 
-  socket.on('send-message', ({ roomId, body }) => {
+  socket.on('send-message', ({ roomId, body } = {}) => {
     roomId = Number(roomId);
     body = String(body || '').trim();
     if (!body) return;
@@ -238,7 +247,7 @@ io.on('connection', (socket) => {
   });
 
   // Video (ephemeral, per-room)
-  socket.on('video-join', ({ roomId }) => {
+  socket.on('video-join', ({ roomId } = {}) => {
     roomId = Number(roomId);
     if (!isMember(roomId, userId)) return;
     socket.join(roomKey(roomId));
@@ -247,19 +256,20 @@ io.on('connection', (socket) => {
     io.to(roomKey(roomId)).emit('room-event', { roomId, type: 'video-join', username, createdAt: new Date().toISOString() });
     broadcastVideoPeers(roomId);
   });
-  socket.on('video-leave', ({ roomId }) => {
+  socket.on('video-leave', ({ roomId } = {}) => {
     roomId = Number(roomId);
     videoPeers.get(roomId)?.delete(socket.id);
     io.to(roomKey(roomId)).emit('room-event', { roomId, type: 'video-leave', username, createdAt: new Date().toISOString() });
     broadcastVideoPeers(roomId);
   });
-  socket.on('video-state', ({ roomId, muted, camOff }) => {
+  socket.on('video-state', ({ roomId, muted, camOff } = {}) => {
     roomId = Number(roomId);
+    if (!isMember(roomId, userId)) return;
     const p = videoPeers.get(roomId)?.get(socket.id);
     if (p) { p.muted = !!muted; p.camOff = !!camOff; broadcastVideoPeers(roomId); }
   });
   for (const ev of ['video-offer', 'video-answer', 'ice-candidate']) {
-    socket.on(ev, ({ roomId, to, payload }) => {
+    socket.on(ev, ({ roomId, to, payload } = {}) => {
       roomId = Number(roomId);
       if (!isMember(roomId, userId)) return;
       io.to(to).emit(ev, { from: socket.id, username, payload });
@@ -267,12 +277,15 @@ io.on('connection', (socket) => {
   }
 
   // Whiteboard (ephemeral relay)
-  socket.on('whiteboard-stroke', ({ roomId, stroke }) => {
+  socket.on('whiteboard-stroke', ({ roomId, stroke } = {}) => {
     roomId = Number(roomId);
     if (!isMember(roomId, userId)) return;
+    const pts = stroke?.points; // cap relay size (flood guard)
+    if (!stroke || !Array.isArray(pts) || pts.length === 0 || pts.length > 500) return;
+    if (!pts.every((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))) return;
     socket.to(roomKey(roomId)).emit('whiteboard-stroke', { roomId, username, stroke });
   });
-  socket.on('whiteboard-clear-mine', ({ roomId }) => {
+  socket.on('whiteboard-clear-mine', ({ roomId } = {}) => {
     roomId = Number(roomId);
     if (!isMember(roomId, userId)) return;
     io.to(roomKey(roomId)).emit('whiteboard-clear-mine', { roomId, username });
@@ -294,6 +307,13 @@ io.on('connection', (socket) => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+// Always-JSON error handler (never leak HTML stack to clients)
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'internal error' });
+});
+
 if (require.main === module) {
   server.listen(PORT, () => {
     const n = (t) => { try { return db.prepare(`SELECT COUNT(*) AS c FROM ${t}`).get().c; } catch { return 0; } };
@@ -307,6 +327,7 @@ ${C.cyan}${C.bold}  \\____|_| |_|\\__,_|\\__|____/| .__/ \\__,_|\\___\\___|${C.r
 ${C.cyan}${C.bold}                             |_|                  ${C.reset}
   ${C.dim}mode${C.reset}  ${mode}   ${C.dim}url${C.reset}  ${C.bold}http://localhost:${PORT}${C.reset}
   ${C.dim}users${C.reset} ${n('users')}  ${C.dim}rooms${C.reset} ${n('rooms')}  ${C.dim}messages${C.reset} ${n('messages')}  ${C.dim}db${C.reset} ${process.env.DB_PATH || 'chatspace.db'}
+${USING_DEFAULT_SECRET ? `  ${C.red}WARN: SESSION_SECRET not set — insecure default (dev only)${C.reset}` : ''}
 `);
   });
 }

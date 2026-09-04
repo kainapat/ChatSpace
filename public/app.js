@@ -190,6 +190,7 @@ updateVideoUI();
 const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 function updateVideoUI() {
   $('leaveRoom').disabled = $('delRoom').disabled = !roomId;
+  $('sendForm').querySelector('button').disabled = $('msg').disabled = !roomId;
   $('vJoin').disabled = !roomId || inVideo;
   $('vLeave').disabled = !inVideo;
   $('vMute').disabled = $('vCam').disabled = $('vCamSel').disabled = !inVideo;
@@ -286,6 +287,7 @@ async function onPeers({ peers }) {
     return;
   }
   await ensureLocal().catch(() => {});
+  if (!localStream) { toast('No camera/mic available', 'err'); return; }
   ensureVideoEl('local', me.username + ' (you)', localStream, true);
   paintVideoEl('local', me.username + ' (you)', { muted, camOff });
   for (const p of peers) {

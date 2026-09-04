@@ -40,7 +40,7 @@ Open **http://localhost:3000**, then try the full flow with two accounts:
 | --- | --- | --- |
 | Backend | Express + Socket.IO | One repo for REST + realtime + video signaling |
 | Database | `node:sqlite` (built-in) | Zero native deps, file-based, enough for MVP |
-| Auth | express-session + bcryptjs | httpOnly cookies, server-side permission checks |
+| Auth | express-session + bcryptjs + express-rate-limit | httpOnly cookies, session regeneration, server-side permission checks, auth rate limiting |
 | Video | Native WebRTC mesh + public STUN | No SFU to deploy; cap ~6 peers |
 | Frontend | Vanilla HTML/CSS/JS + Canvas | No build step, instant load |
 
@@ -58,6 +58,19 @@ ChatSpace/
 │   └── app.js       # Socket.IO client, WebRTC mesh, Canvas whiteboard
 ├── docs/adr/        # architecture decision records
 └── CONTEXT.md       # domain glossary
+```
+
+## 🛡️ Security notes
+
+- Passwords hashed with bcrypt; usernames validated (`3-20 chars`); sessions regenerate on login
+- Private rooms enforced server-side on every REST + Socket.IO action (never UI-only)
+- Auth endpoints rate-limited (30 req / 15 min / IP); whiteboard strokes capped (500 points)
+- ⚠️ Set `SESSION_SECRET` in production — startup warns when the insecure default is used
+
+## ✅ Verify
+
+```bash
+npm test            # frontend eval smoke (catches init-order bugs)
 ```
 
 ## 🔌 Key API & events
