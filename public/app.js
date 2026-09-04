@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-let me = null, socket = null, roomId = null;
+let me = null, socket = null, roomId = null, inVideo = false;
 let pcs = {}, localStream = null, muted = false, camOff = false;
 
 async function api(path, opts = {}) {
@@ -42,6 +42,7 @@ async function loadRooms() {
     b.textContent = r.name; b.onclick = () => selectRoom(r.id, r.name);
     $('rooms').appendChild(b);
   });
+  return rooms;
 }
 $('newRoom').onclick = () => { $('roomErr').textContent = ''; $('roomModal').hidden = false; };
 $('rCancel').onclick = () => $('roomModal').hidden = true;
@@ -79,7 +80,21 @@ function connectSocket() {
   socket.on('video-offer', onOffer);
   socket.on('video-answer', async ({ from, payload }) => pcs[from]?.setRemoteDescription(payload));
   socket.on('ice-candidate', async ({ from, payload }) => pcs[from]?.addIceCandidate(payload).catch(() => {}));
-  socket.on('rooms-changed', () => loadRooms());
+  socket.on('rooms-changed', async () => {
+    const rooms = await loadRooms().catch(() => []);
+    if (roomId && !rooms.find((r) => r.id === roomId)) {
+      leaveVideo(); roomId = null;
+      $('roomTitle').textContent = 'Select a room'; $('members').textContent = ''; $('messages').innerHTML = '';
+      updateVideoUI();
+    }
+  });
+  socket.on('connect', () => {
+    if (socket._rejoin && roomId) {
+      socket.emit('join-room', { roomId });
+      if (inVideo) { inVideo = false; updateVideoUI(); addSys('reconnected — press Join Video again', new Date().toISOString()); }
+    }
+    socket._rejoin = true;
+  });
 }
 
 async function selectRoom(id, name) {
@@ -95,6 +110,7 @@ async function selectRoom(id, name) {
     ...evs.map((e) => ({ t: e.created_at, s: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
   timeline.forEach((x) => addMsg(x.s, x.t));
   strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
+  updateVideoUI();
 }
 function addMsg(s, t) {
   const d = document.createElement('div'); d.innerHTML = `<div>${s}</div><div class="ts">${fmt(t)}</div>`;
@@ -109,23 +125,71 @@ $('sendForm').onsubmit = (e) => { e.preventDefault(); socket.emit('send-message'
 // tabs
 document.querySelectorAll('nav button').forEach((b) => b.onclick = () => {
   for (const t of ['chat', 'video', 'board']) $('tab-' + t).hidden = t !== b.dataset.tab;
+  if (b.dataset.tab === 'video') { updateVideoUI(); refreshCams().catch(() => {}); }
 });
+updateVideoUI();
 
 // --- video mesh (Discord-like grid, P2P, STUN for cross-network) ---
 const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+function updateVideoUI() {
+  $('vJoin').disabled = !roomId || inVideo;
+  $('vLeave').disabled = !inVideo;
+  $('vMute').disabled = $('vCam').disabled = $('vCamSel').disabled = !inVideo;
+  $('vMute').textContent = muted ? 'Unmute' : 'Mute';
+  $('vCam').textContent = camOff ? 'Camera on' : 'Camera off';
+  $('videoHint').hidden = !!roomId;
+}
 async function ensureLocal() {
-  if (!localStream) localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  if (!localStream) {
+    const dev = $('vCamSel').value;
+    localStream = await navigator.mediaDevices.getUserMedia({ video: dev ? { deviceId: { exact: dev } } : true, audio: true });
+    refreshCams().catch(() => {});
+  }
   return localStream;
 }
-$('vJoin').onclick = async () => { await ensureLocal(); ensureVideoEl('local', me.username + ' (you)', localStream, true); socket.emit('video-join', { roomId }); };
+async function refreshCams() {
+  const devs = await navigator.mediaDevices.enumerateDevices();
+  const cams = devs.filter((d) => d.kind === 'videoinput');
+  const sel = $('vCamSel'), cur = sel.value;
+  sel.innerHTML = '';
+  cams.forEach((c, i) => {
+    const o = document.createElement('option');
+    o.value = c.deviceId; o.textContent = c.label || `Camera ${i + 1}`;
+    sel.appendChild(o);
+  });
+  if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
+}
+$('vCamSel').onchange = async () => {
+  if (!inVideo || !localStream) return;
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: $('vCamSel').value } }, audio: false });
+  const track = stream.getVideoTracks()[0];
+  const old = localStream.getVideoTracks()[0];
+  if (old) { old.stop(); try { localStream.removeTrack(old); } catch {} }
+  localStream.addTrack(track);
+  Object.values(pcs).forEach((pc) => pc.getSenders().find((s) => s.track?.kind === 'video')?.replaceTrack(track));
+  ensureVideoEl('local', me.username + ' (you)', localStream, true);
+  refreshCams().catch(() => {});
+};
+$('vJoin').onclick = async () => {
+  try {
+    if (!roomId) throw new Error('select a room first');
+    $('videoErr').textContent = '';
+    await ensureLocal();
+    ensureVideoEl('local', me.username + ' (you)', localStream, true);
+    socket.emit('video-join', { roomId });
+    inVideo = true; updateVideoUI();
+  } catch (e) { $('videoErr').textContent = e.message; }
+};
 function leaveVideo() {
-  if (roomId) socket?.emit('video-leave', { roomId });
+  if (roomId && inVideo) socket?.emit('video-leave', { roomId });
   Object.values(pcs).forEach((pc) => { try { pc.close(); } catch {} }); pcs = {};
-  $('videos').innerHTML = '';
+  localStream?.getTracks().forEach((t) => t.stop()); localStream = null;
+  muted = false; camOff = false; inVideo = false;
+  $('videos').innerHTML = ''; updateVideoUI();
 }
 $('vLeave').onclick = leaveVideo;
-$('vMute').onclick = () => { muted = !muted; localStream?.getAudioTracks().forEach((t) => t.enabled = !muted); socket.emit('video-state', { roomId, muted, camOff }); };
-$('vCam').onclick = () => { camOff = !camOff; localStream?.getVideoTracks().forEach((t) => t.enabled = !camOff); socket.emit('video-state', { roomId, muted, camOff }); };
+$('vMute').onclick = () => { muted = !muted; localStream?.getAudioTracks().forEach((t) => t.enabled = !muted); socket.emit('video-state', { roomId, muted, camOff }); updateVideoUI(); };
+$('vCam').onclick = () => { camOff = !camOff; localStream?.getVideoTracks().forEach((t) => t.enabled = !camOff); socket.emit('video-state', { roomId, muted, camOff }); updateVideoUI(); };
 function ensureVideoEl(id, label, stream, mutedEl) {
   let w = document.getElementById('vw-' + id);
   if (!w) {
