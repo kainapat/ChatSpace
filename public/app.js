@@ -47,7 +47,16 @@ async function loadRooms() {
 $('newRoom').onclick = () => { $('roomErr').textContent = ''; $('roomModal').hidden = false; };
 $('rCancel').onclick = () => $('roomModal').hidden = true;
 $('refreshRooms').onclick = () => loadRooms();
-$('rCreate').onclick = async () => {
+$('leaveRoom').onclick = () => {
+  if (!roomId) return;
+  socket.emit('leave-room', { roomId });
+  leaveVideo();
+  roomId = null;
+  $('roomTitle').textContent = 'Select a room';
+  $('members').textContent = ''; $('online').textContent = ''; $('messages').innerHTML = '';
+  strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
+  updateVideoUI();
+};$('rCreate').onclick = async () => {
   try {
     const memberUsernames = $('rMembers').value.split(',').map((s) => s.trim()).filter(Boolean);
     const r = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name: $('rName').value, description: $('rDesc').value, memberUsernames }) });
@@ -132,6 +141,7 @@ updateVideoUI();
 // --- video mesh (Discord-like grid, P2P, STUN for cross-network) ---
 const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 function updateVideoUI() {
+  $('leaveRoom').disabled = !roomId;
   $('vJoin').disabled = !roomId || inVideo;
   $('vLeave').disabled = !inVideo;
   $('vMute').disabled = $('vCam').disabled = $('vCamSel').disabled = !inVideo;
