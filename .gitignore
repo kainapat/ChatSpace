@@ -9,6 +9,8 @@ package-lock.json
 
 # SQLite / DB (never push PUBLIC)
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 *.db-journal
