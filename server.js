@@ -145,6 +145,17 @@ app.post('/api/rooms/:id/members', requireAuth, checkMember, (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/rooms/:id', requireAuth, (req, res) => {
+  const roomId = Number(req.params.id);
+  const room = db.prepare('SELECT created_by FROM rooms WHERE id = ?').get(roomId);
+  if (!room) return res.status(404).json({ error: 'room not found' });
+  if (room.created_by !== req.session.userId) return res.status(403).json({ error: 'only the creator can delete this room' });
+  db.prepare('DELETE FROM rooms WHERE id = ?').run(roomId);
+  io.to(roomKey(roomId)).emit('room-deleted', { roomId });
+  io.emit('rooms-changed');
+  res.json({ ok: true });
+});
+
 app.get('/api/rooms/:id/messages', requireAuth, checkMember, (req, res) => {
   const limit = Math.min(Number(req.query.limit || 50), 200);
   const rows = db.prepare(`

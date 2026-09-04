@@ -19,7 +19,6 @@
   <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
   <button id="login">Login</button>
   <button id="register">Register</button>
-  <p id="authErr"></p>
 </section>
 
 <main id="app" hidden>
@@ -33,11 +32,11 @@
     <div id="members"></div>
     <input id="addMemberName" placeholder="add username..." />
     <button id="addMember">Add member</button>
-    <p id="memberErr"></p>
   </aside>
   <section id="center">
     <h3 id="roomTitle">Select a room</h3>
     <button id="leaveRoom">Leave room</button>
+    <button id="delRoom">Delete room</button>
     <div id="tab-chat">
       <div id="messages"></div>
       <form id="sendForm"><input id="msg" placeholder="Type a message..." autocomplete="off" /><button>Send</button></form>
@@ -47,7 +46,6 @@
       <button id="vMute">Mute</button><button id="vCam">Camera off</button>
       <select id="vCamSel" title="Camera"></select></div>
       <p id="videoHint">Select a room first to enable video.</p>
-      <p id="videoErr"></p>
       <div id="videos"></div>
     </div>
     <div id="tab-board" hidden>
@@ -69,9 +67,10 @@
   <input id="rName" placeholder="Room Name" />
   <input id="rDesc" placeholder="Description (optional)" />
   <input id="rMembers" placeholder="members: jane, mike (usernames)" />
-  <p id="roomErr"></p>
   <button id="rCreate">Create</button><button id="rCancel">Cancel</button>
 </div>
+
+<div id="toasts"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/app.js"></script>

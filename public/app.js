@@ -18,6 +18,14 @@ const fmt = (iso) => {
   } catch { return iso; }
 };
 
+function toast(msg, type = 'ok') {
+  const box = $('toasts');
+  const d = document.createElement('div');
+  d.className = 'toast ' + type; d.textContent = msg;
+  box.appendChild(d);
+  setTimeout(() => d.remove(), 3000);
+}
+
 async function refreshMe() {
   try { me = await api('/api/me'); } catch { me = null; }
   $('auth').hidden = !!me; $('app').hidden = !me; $('logout').hidden = !me;
@@ -25,12 +33,16 @@ async function refreshMe() {
   if (me) { connectSocket(); loadRooms(); }
 }
 $('login').onclick = async () => {
-  try { await api('/api/login', { method: 'POST', body: JSON.stringify({ username: $('username').value, password: $('password').value }) }); refreshMe(); }
-  catch (e) { $('authErr').textContent = e.message; }
+  try {
+    const u = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: $('username').value, password: $('password').value }) });
+    toast(`Welcome back, ${u.username}!`); refreshMe();
+  } catch (e) { toast(e.message, 'err'); }
 };
 $('register').onclick = async () => {
-  try { await api('/api/register', { method: 'POST', body: JSON.stringify({ username: $('username').value, password: $('password').value }) }); refreshMe(); }
-  catch (e) { $('authErr').textContent = e.message; }
+  try {
+    const u = await api('/api/register', { method: 'POST', body: JSON.stringify({ username: $('username').value, password: $('password').value }) });
+    toast(`Registered as ${u.username}!`); refreshMe();
+  } catch (e) { toast(e.message, 'err'); }
 };
 $('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); location.reload(); };
 
@@ -44,32 +56,44 @@ async function loadRooms() {
   });
   return rooms;
 }
-$('newRoom').onclick = () => { $('roomErr').textContent = ''; $('roomModal').hidden = false; };
+$('newRoom').onclick = () => { $('roomModal').hidden = false; };
 $('rCancel').onclick = () => $('roomModal').hidden = true;
 $('refreshRooms').onclick = () => loadRooms();
-$('leaveRoom').onclick = () => {
-  if (!roomId) return;
-  socket.emit('leave-room', { roomId });
+function exitRoomView() {
   leaveVideo();
   roomId = null;
   $('roomTitle').textContent = 'Select a room';
   $('members').textContent = ''; $('online').textContent = ''; $('messages').innerHTML = '';
   strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
   updateVideoUI();
+}
+$('leaveRoom').onclick = () => {
+  if (!roomId) return;
+  socket.emit('leave-room', { roomId });
+  exitRoomView();
+};
+$('delRoom').onclick = async () => {
+  if (!roomId) return;
+  if (!confirm(`Delete "${$('roomTitle').textContent}" for everyone?`)) return;
+  try {
+    await api(`/api/rooms/${roomId}`, { method: 'DELETE' });
+    toast('Room deleted');
+    exitRoomView(); loadRooms();
+  } catch (e) { toast(e.message, 'err'); }
 };$('rCreate').onclick = async () => {
   try {
     const memberUsernames = $('rMembers').value.split(',').map((s) => s.trim()).filter(Boolean);
     const r = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name: $('rName').value, description: $('rDesc').value, memberUsernames }) });
-    $('roomModal').hidden = true; loadRooms(); selectRoom(r.id, $('rName').value);
-  } catch (e) { $('roomErr').textContent = e.message; }
+    $('roomModal').hidden = true; toast(`Room "${r.name}" created`); loadRooms(); selectRoom(r.id, $('rName').value);
+  } catch (e) { toast(e.message, 'err'); }
 };
 $('addMember').onclick = async () => {
   try {
     if (!roomId) throw new Error('select a room first');
     await api(`/api/rooms/${roomId}/members`, { method: 'POST', body: JSON.stringify({ username: $('addMemberName').value.trim() }) });
-    $('addMemberName').value = ''; $('memberErr').textContent = '';
-    reloadMembers();
-  } catch (e) { $('memberErr').textContent = e.message; }
+    $('addMemberName').value = '';
+    toast('Member added'); reloadMembers();
+  } catch (e) { toast(e.message, 'err'); }
 };
 async function reloadMembers() {
   if (!roomId) return;
@@ -91,11 +115,10 @@ function connectSocket() {
   socket.on('ice-candidate', async ({ from, payload }) => pcs[from]?.addIceCandidate(payload).catch(() => {}));
   socket.on('rooms-changed', async () => {
     const rooms = await loadRooms().catch(() => []);
-    if (roomId && !rooms.find((r) => r.id === roomId)) {
-      leaveVideo(); roomId = null;
-      $('roomTitle').textContent = 'Select a room'; $('members').textContent = ''; $('messages').innerHTML = '';
-      updateVideoUI();
-    }
+    if (roomId && !rooms.find((r) => r.id === roomId)) exitRoomView();
+  });
+  socket.on('room-deleted', ({ roomId: rid }) => {
+    if (rid === roomId) { toast('This room was deleted', 'err'); exitRoomView(); loadRooms(); }
   });
   socket.on('connect', () => {
     if (socket._rejoin && roomId) {
@@ -141,7 +164,7 @@ updateVideoUI();
 // --- video mesh (Discord-like grid, P2P, STUN for cross-network) ---
 const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 function updateVideoUI() {
-  $('leaveRoom').disabled = !roomId;
+  $('leaveRoom').disabled = $('delRoom').disabled = !roomId;
   $('vJoin').disabled = !roomId || inVideo;
   $('vLeave').disabled = !inVideo;
   $('vMute').disabled = $('vCam').disabled = $('vCamSel').disabled = !inVideo;
@@ -183,13 +206,12 @@ $('vCamSel').onchange = async () => {
 $('vJoin').onclick = async () => {
   try {
     if (!roomId) throw new Error('select a room first');
-    $('videoErr').textContent = '';
     await ensureLocal();
     ensureVideoEl('local', me.username + ' (you)', localStream, true);
     paintVideoEl('local', me.username + ' (you)', { muted, camOff });
     socket.emit('video-join', { roomId });
     inVideo = true; updateVideoUI();
-  } catch (e) { $('videoErr').textContent = e.message; }
+  } catch (e) { toast(e.message, 'err'); }
 };
 function leaveVideo() {
   if (roomId && inVideo) socket?.emit('video-leave', { roomId });
