@@ -40,7 +40,7 @@ async function refreshMe() {
   try { me = (await api('/api/me')).user ?? null; } catch { me = null; }
   $('auth').hidden = !!me; $('app').hidden = !me; $('logout').hidden = !me;
   $('me').textContent = me ? `User: ${me.username}` : '';
-  if (me) { connectSocket(); loadRooms(); }
+  if (me) { connectSocket(); loadRooms().catch((e) => toast(e.message, 'err')); }
 }
 $('login').onclick = async () => {
   try {
@@ -59,6 +59,13 @@ $('logout').onclick = async () => { try { await api('/api/logout', { method: 'PO
 async function loadRooms() {
   const rooms = await api('/api/rooms');
   $('rooms').innerHTML = '';
+  if (!rooms.length) {
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = 'No rooms yet — create one to start chatting.';
+    const b = document.createElement('button'); b.textContent = 'New room';
+    b.onclick = () => $('newRoom').onclick();
+    e.appendChild(b); $('rooms').appendChild(e);
+  }
   rooms.forEach((r) => {
     const b = document.createElement('button');
     b.textContent = r.name; b.dataset.id = r.id; b.onclick = () => selectRoom(r.id, r.name);
@@ -69,7 +76,7 @@ async function loadRooms() {
 }
 $('newRoom').onclick = () => { $('roomModal').hidden = false; };
 $('rCancel').onclick = () => $('roomModal').hidden = true;
-$('refreshRooms').onclick = () => loadRooms();
+$('refreshRooms').onclick = () => loadRooms().catch((e) => toast(e.message, 'err'));
 function exitRoomView() {
   leaveVideo();
   roomId = null;
@@ -143,16 +150,28 @@ function connectSocket() {
 async function selectRoom(id, name) {
   if (roomId) socket.emit('leave-room', { roomId });
   leaveVideo();
-  roomId = id; $('roomTitle').textContent = name; $('messages').innerHTML = '';
+  roomId = id; $('roomTitle').textContent = name;
+  $('messages').innerHTML = '<div class="skel"></div><div class="skel own"></div><div class="skel"></div>';
   [...$('rooms').children].forEach((x) => x.classList.toggle('active', +x.dataset.id === id));
   socket.emit('join-room', { roomId });
-  const [msgs, evs, info] = await Promise.all([
-    api(`/api/rooms/${id}/messages`), api(`/api/rooms/${id}/events`), api(`/api/rooms/${id}`),
-  ]);
-  $('members').textContent = info.members.map((m) => m.username).join(', ');
-  const timeline = [...msgs.map((m) => ({ t: m.created_at, kind: 'chat', username: m.username, body: m.body })),
-    ...evs.map((e) => ({ t: e.created_at, kind: 'sys', text: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
-  timeline.forEach((x) => x.kind === 'chat' ? addChat(x.username, x.body, x.t) : addSys(x.text, x.t));
+  try {
+    const [msgs, evs, info] = await Promise.all([
+      api(`/api/rooms/${id}/messages`), api(`/api/rooms/${id}/events`), api(`/api/rooms/${id}`),
+    ]);
+    $('members').textContent = info.members.map((m) => m.username).join(', ');
+    const timeline = [...msgs.map((m) => ({ t: m.created_at, kind: 'chat', username: m.username, body: m.body })),
+      ...evs.map((e) => ({ t: e.created_at, kind: 'sys', text: `${e.username} ${e.event_type}` }))].sort((a, b) => a.t < b.t ? -1 : 1);
+    $('messages').innerHTML = '';
+    if (!timeline.length) {
+      const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No messages yet — say hi.';
+      $('messages').appendChild(e);
+    }
+    timeline.forEach((x) => x.kind === 'chat' ? addChat(x.username, x.body, x.t) : addSys(x.text, x.t));
+  } catch (e) {
+    $('messages').innerHTML = '';
+    const d = document.createElement('div'); d.className = 'empty'; d.textContent = 'Could not load this room. Try again.';
+    $('messages').appendChild(d); toast(e.message, 'err');
+  }
   strokes = []; redoStack = []; ctx.clearRect(0, 0, cv.width, cv.height);
   updateVideoUI();
 }
