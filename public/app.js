@@ -370,6 +370,14 @@ cv.onpointerup = () => {
 function drawStroke(s) {
   ctx.save(); applyStyle(s);
   ctx.beginPath(); s.points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); ctx.restore();
+  if (!s.mine && s.by && s.points.length) { // author tag at stroke start
+    const p0 = s.points[0];
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    ctx.fillStyle = nameColor(s.by); ctx.font = '11px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText(s.by, p0.x + 4, Math.max(10, p0.y - 6));
+    ctx.restore();
+  }
 }
 function redraw() { ctx.clearRect(0, 0, cv.width, cv.height); strokes.forEach(drawStroke); }
 function onRemoteStroke(username, stroke) { stroke.by = username; stroke.mine = false; strokes.push(stroke); drawStroke(stroke); }
