@@ -176,6 +176,7 @@ $('vJoin').onclick = async () => {
     $('videoErr').textContent = '';
     await ensureLocal();
     ensureVideoEl('local', me.username + ' (you)', localStream, true);
+    paintVideoEl('local', me.username + ' (you)', { muted, camOff });
     socket.emit('video-join', { roomId });
     inVideo = true; updateVideoUI();
   } catch (e) { $('videoErr').textContent = e.message; }
@@ -188,13 +189,17 @@ function leaveVideo() {
   $('videos').innerHTML = ''; updateVideoUI();
 }
 $('vLeave').onclick = leaveVideo;
-$('vMute').onclick = () => { muted = !muted; localStream?.getAudioTracks().forEach((t) => t.enabled = !muted); socket.emit('video-state', { roomId, muted, camOff }); updateVideoUI(); };
-$('vCam').onclick = () => { camOff = !camOff; localStream?.getVideoTracks().forEach((t) => t.enabled = !camOff); socket.emit('video-state', { roomId, muted, camOff }); updateVideoUI(); };
+$('vMute').onclick = () => { muted = !muted; localStream?.getAudioTracks().forEach((t) => t.enabled = !muted); socket.emit('video-state', { roomId, muted, camOff }); paintVideoEl('local', me.username + ' (you)', { muted, camOff }); updateVideoUI(); };
+$('vCam').onclick = () => { camOff = !camOff; localStream?.getVideoTracks().forEach((t) => t.enabled = !camOff); socket.emit('video-state', { roomId, muted, camOff }); paintVideoEl('local', me.username + ' (you)', { muted, camOff }); updateVideoUI(); };
 function ensureVideoEl(id, label, stream, mutedEl) {
   let w = document.getElementById('vw-' + id);
   if (!w) {
     w = document.createElement('div'); w.id = 'vw-' + id;
-    const tag = document.createElement('div'); tag.textContent = label; w.appendChild(tag);
+    const tag = document.createElement('div');
+    const nm = document.createElement('span'); nm.className = 'vn'; nm.textContent = label;
+    const st = document.createElement('span'); st.className = 'vs';
+    tag.appendChild(nm); tag.appendChild(document.createTextNode(' ')); tag.appendChild(st);
+    w.appendChild(tag);
     const v = document.createElement('video'); v.id = 'v-' + id; v.autoplay = true; v.playsInline = true;
     if (mutedEl) v.muted = true;
     w.appendChild(v); $('videos').appendChild(w);
@@ -203,11 +208,20 @@ function ensureVideoEl(id, label, stream, mutedEl) {
   if (stream && v.srcObject !== stream) { v.srcObject = stream; v.play().catch(() => {}); }
   return v;
 }
+function paintVideoEl(id, label, st) {
+  ensureVideoEl(id, label, null, id === 'local');
+  const w = document.getElementById('vw-' + id);
+  if (!w) return;
+  w.querySelector('.vn').textContent = label;
+  w.querySelector('.vs').textContent = `${st?.muted ? '🔇' : ''}${st?.camOff ? ' 🚫' : ''}`;
+}
 function removeVideoEl(id) { document.getElementById('vw-' + id)?.remove(); }
 async function onPeers({ peers }) {
   await ensureLocal().catch(() => {});
   ensureVideoEl('local', me.username + ' (you)', localStream, true);
+  paintVideoEl('local', me.username + ' (you)', { muted, camOff });
   for (const p of peers) {
+    if (p.socketId !== socket.id) paintVideoEl(p.socketId, p.username, p);
     if (p.socketId === socket.id || pcs[p.socketId]) continue;
     if (!(socket.id < p.socketId)) continue; // offerer election: smaller id offers, avoids glare
     const pc = new RTCPeerConnection(RTC_CFG); pcs[p.socketId] = pc;
